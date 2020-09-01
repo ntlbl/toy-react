@@ -1,2 +1,4 @@
 # toy-react
-1
+Toy React is my first react project.
+
+
