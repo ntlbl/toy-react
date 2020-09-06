@@ -8,7 +8,7 @@ function createElement(tagName, attributes, ...children){
     for(let p in attributes){
         e.setAttribute(p, attributes[p]);
     }
-    for(let child in children){
+    for(let child of children){
         if (typeof child === "string") {
             child = document.createTextNode(child);
         }
