@@ -1,26 +1,35 @@
 const RENDER_TO_DOM = Symbol("render to dom");
 
-export class Component{
+export class Component {
     constructor() {
         this.props = Object.create(null);
         this.children = [];
         this._root = null;
         this._range = null;
     }
-    setAttribute(name, value){
+
+    setAttribute(name, value) {
         this.props[name] = value;
     }
+
     appendChild(component) {
         this.children.push(component);
     }
+
     get vdom() {
         return this.render().vdom;
     }
-    [RENDER_TO_DOM](range){ // 另一个写法 ——_renderToDOM
+
+    get vchildren() {
+        return this.children.map(child => child.vdom);
+    }
+
+    [RENDER_TO_DOM](range) { // 另一个写法 ——_renderToDOM
         this._range = range;
         this.render()[RENDER_TO_DOM](range);
     }
-    rerender(){  // 重新绘制
+
+    rerender() {  // 重新绘制
         let oldRange = this._range;
 
         let range = document.createRange();
@@ -31,15 +40,16 @@ export class Component{
         oldRange.setStart(range.endContainer, range.endOffset);
         oldRange.deleteContents();
     }
-    setState(newState){
-        if (this.state === null || typeof this.state !== "object"){
+
+    setState(newState) {
+        if (this.state === null || typeof this.state !== "object") {
             this.state = newState;
             this.rerender();
             return;
         }
-        let merge = function(oldState, newState) {
-            for(let p in newState){
-                if (oldState[p] === null || typeof oldState[p] !== "object"){
+        let merge = function (oldState, newState) {
+            for (let p in newState) {
+                if (oldState[p] === null || typeof oldState[p] !== "object") {
                     oldState[p] = newState[p];
                 } else {
                     merge(oldState[p], newState[p]);
@@ -55,7 +65,6 @@ class ElementWrapper extends Component {
     constructor(type) {
         super(type);
         this.type = type;
-        this.root = document.createElement(type);
     }
     /*
     setAttribute(name, value){
@@ -78,29 +87,46 @@ class ElementWrapper extends Component {
         component[RENDER_TO_DOM](range);
     }*/
     get vdom(){
-        return {
-            type: this.type,
-            props: this.props,
-            children: this.children.map(child => child.vdom)
-        }
+        return this;
     }
     [RENDER_TO_DOM](range){ // 另一个写法 ——_renderToDOM
         range.deleteContents();
-        range.insertNode(this.root);
+
+        let root = document.createElement(this.type);
+        for(let name in this.props){
+            let value =this.props[name];
+            if(name.match(/^on([\s\S]+)$/)){
+                // 以小写开头
+                root.addEventListener(RegExp.$1.replace(/^[\s\S]/, c => c.toLowerCase()), value);
+            } else {
+                if (name === "className"){
+                    root.setAttribute("class", value);
+                } else {
+                    root.setAttribute(name, value);
+                }
+            }
+        }
+
+        for(let child of this.children) { //children is array
+            let childRange = document.createRange();
+            childRange.setStart(root, root.childNodes.length);
+            childRange.setEnd(root, root.childNodes.length);
+            child[RENDER_TO_DOM](childRange);
+        }
+
+        range.insertNode(root);
     }
 }
 
 class TextWrapper extends Component{
     constructor(content) {
         super(content);
+        this.type = "#text";
         this.content = content;
         this.root = document.createTextNode(content);
     }
     get vdom(){
-        return {
-            type: "#text",
-            content: this.content
-        }
+        return this
     }
     [RENDER_TO_DOM](range){ // 另一个写法 ——_renderToDOM
         range.deleteContents();
